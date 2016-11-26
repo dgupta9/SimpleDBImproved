@@ -1,15 +1,20 @@
 package simpledb.buffer;
 
+import java.util.HashMap;
+import java.util.HashSet;
+
 import simpledb.file.Block;
 
 public class FIFOBufferMgr {
 
 	private int bufferCountLimit;
 	private BufferNode head,tail;
+	private HashMap<Block,Buffer> buffMap;
 	
 	public FIFOBufferMgr(int poolSize){
 		// to have a limit on bufferNode
 		bufferCountLimit = poolSize;
+		buffMap = new HashMap<Block,Buffer>();
 		head=null;
 		tail=null;
 	}
@@ -20,6 +25,7 @@ public class FIFOBufferMgr {
 		if(tail==null){
 			tail=new BufferNode(item);
 			tail.setNext(null);
+			head=tail;
 		}else{
 			BufferNode temp = new BufferNode(item);
 			temp.setNext(null);
@@ -27,6 +33,8 @@ public class FIFOBufferMgr {
 			tail=temp;
 		}
 		bufferCountLimit--;
+		if(item.block()!=null)
+			buffMap.put(item.block(), item);
 		return true;
 	}
 	
@@ -43,6 +51,7 @@ public class FIFOBufferMgr {
 				head.setNext(ptr.getNext());
 			else
 				prevPtr.setNext(ptr.getNext());
+			buffMap.remove(ptr.getVal().block());
 			return ptr.getVal();
 		}
 		
@@ -54,10 +63,11 @@ public class FIFOBufferMgr {
 	* @param txnum the transaction's id number
 	*/
 	synchronized void flushAll(int txnum) {
-		Buffer item;
-		while((item=dequeue())!=null){
-			if (item.isModifiedBy(txnum))
-				item.flush();
+		BufferNode temp = tail;
+		while((temp!= head)&&(temp!=null)){
+			if (temp.getVal().isModifiedBy(txnum))
+				temp.getVal().flush();
+			temp=temp.getNext();
 		}
 	}
 	
@@ -76,11 +86,11 @@ public class FIFOBufferMgr {
 	      buff = chooseUnpinnedBuffer();
 	      if (buff == null)
 	         return null;
+	      buffMap.put(blk, buff);
 	      buff.assignToBlock(blk);
 	   }
 	   if (!buff.isPinned())
 		   bufferCountLimit--;
-	   enqueue(buff);
 	   buff.pin();
 	   return buff;
 	}
@@ -96,10 +106,11 @@ public class FIFOBufferMgr {
     */
 	synchronized Buffer pinNew(String filename, PageFormatter fmtr) {
 	   Buffer buff = chooseUnpinnedBuffer();
-	   if (buff == null)
+	   if (buff == null){
 	      return null;
+	   }
 	   buff.assignToNew(filename, fmtr);
-	   enqueue(buff);
+	   buffMap.put(buff.block(), buff);
 	   bufferCountLimit--;
 	   buff.pin();
 	   return buff;
@@ -125,17 +136,23 @@ public class FIFOBufferMgr {
 
 	
 	private Buffer findExistingBuffer(Block blk) {
-		BufferNode ptr = head;
-		while(ptr!=null){
-			if((ptr.getVal()!=null)&&(ptr.getVal().equals(blk))){
-				return ptr.getVal();
-			}
-			ptr = ptr.getNext();
-		}
-		return null;
+		return buffMap.get(blk);
+	}
+	
+	boolean containsMapping(Block blk) {
+		return buffMap.containsKey(blk);
 	}
 		   
+	Buffer getMapping(Block blk) {
+		return buffMap.get(blk);
+	}
+	
     private Buffer chooseUnpinnedBuffer() {
-       return dequeue();
+       Buffer temp =  dequeue();
+       if((temp==null)&&(bufferCountLimit>0)){
+    	   temp = new Buffer();
+    	   enqueue(temp);
+       }
+       return temp;
     }
 }
