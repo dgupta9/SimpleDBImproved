@@ -9,12 +9,12 @@ public class FIFOBufferMgr {
 
 	private int bufferCountLimit;
 	private BufferNode head,tail;
-	private HashMap<Block,Buffer> buffMap;
+	private HashMap<Block,Buffer> bufferPoolMap;
 	
 	public FIFOBufferMgr(int poolSize){
 		// to have a limit on bufferNode
 		bufferCountLimit = poolSize;
-		buffMap = new HashMap<Block,Buffer>();
+		bufferPoolMap = new HashMap<Block,Buffer>();
 		head=null;
 		tail=null;
 	}
@@ -32,9 +32,8 @@ public class FIFOBufferMgr {
 			tail.setNext(temp);
 			tail=temp;
 		}
-		bufferCountLimit--;
 		if(item.block()!=null)
-			buffMap.put(item.block(), item);
+			bufferPoolMap.put(item.block(), item);
 		return true;
 	}
 	
@@ -46,12 +45,19 @@ public class FIFOBufferMgr {
 		}
 		
 		if(ptr!=null){
-			bufferCountLimit++;
-			if(head==ptr)
-				head.setNext(ptr.getNext());
-			else
+			//if(bufferCountLimit<8)
+			//	bufferCountLimit++;
+			if(head==ptr){
+				if(head.getNext()!=null)
+					head = head.getNext();
+				else{
+					head = null;
+					tail=null;
+				}
+			}else
 				prevPtr.setNext(ptr.getNext());
-			buffMap.remove(ptr.getVal().block());
+			
+			bufferPoolMap.remove(ptr.getVal().block());
 			return ptr.getVal();
 		}
 		
@@ -86,11 +92,12 @@ public class FIFOBufferMgr {
 	      buff = chooseUnpinnedBuffer();
 	      if (buff == null)
 	         return null;
-	      buffMap.put(blk, buff);
+	      bufferPoolMap.put(blk, buff);
 	      buff.assignToBlock(blk);
 	   }
 	   if (!buff.isPinned())
 		   bufferCountLimit--;
+	   
 	   buff.pin();
 	   return buff;
 	}
@@ -110,7 +117,7 @@ public class FIFOBufferMgr {
 	      return null;
 	   }
 	   buff.assignToNew(filename, fmtr);
-	   buffMap.put(buff.block(), buff);
+	   bufferPoolMap.put(buff.block(), buff);
 	   bufferCountLimit--;
 	   buff.pin();
 	   return buff;
@@ -136,20 +143,22 @@ public class FIFOBufferMgr {
 
 	
 	private Buffer findExistingBuffer(Block blk) {
-		return buffMap.get(blk);
+		return bufferPoolMap.get(blk);
 	}
 	
 	boolean containsMapping(Block blk) {
-		return buffMap.containsKey(blk);
+		return bufferPoolMap.containsKey(blk);
 	}
 		   
 	Buffer getMapping(Block blk) {
-		return buffMap.get(blk);
+		return bufferPoolMap.get(blk);
 	}
 	
     private Buffer chooseUnpinnedBuffer() {
        Buffer temp =  dequeue();
-       if((temp==null)&&(bufferCountLimit>0)){
+       if(temp!=null){
+    	   bufferPoolMap.remove(temp.block());
+       }else if(bufferCountLimit>0){
     	   temp = new Buffer();
     	   enqueue(temp);
        }

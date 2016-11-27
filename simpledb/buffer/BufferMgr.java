@@ -44,6 +44,10 @@ public class BufferMgr {
       bufferMgr = new FIFOBufferMgr(numbuffers);
    }
    
+   public FIFOBufferMgr getBufferMgr(){
+	   return this.bufferMgr;
+   }
+   
    /**
     * Pins a buffer to the specified block, potentially
     * waiting until a buffer becomes available.
@@ -130,9 +134,8 @@ public class BufferMgr {
    public boolean containsMapping(Block blk) {
 	   return bufferMgr.containsMapping(blk);
    }
-   
-	public Buffer getMapping(Block blk) {
+
+   public Buffer getMapping(Block blk) {
 	   return bufferMgr.getMapping(blk);
-	}
-   
+   }
 }
