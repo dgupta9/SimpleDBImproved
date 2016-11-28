@@ -21,10 +21,10 @@ import simpledb.file.*;
 public class BufferMgr {
    private static final long MAX_TIME = 10000; // 10 seconds
    // Basic Buffer Mgr
-   //private BasicBufferMgr bufferMgr;
+   private BasicBufferMgr bufferMgr;
    
    // FIFO Buffer Mgr
-   private FIFOBufferMgr bufferMgr;
+   //private FIFOBufferMgr bufferMgr;
    
    /**
     * Creates a new buffer manager having the specified 
@@ -40,11 +40,11 @@ public class BufferMgr {
     * @param numbuffers the number of buffer slots to allocate
     */
    public BufferMgr(int numbuffers) {
-      //bufferMgr = new BasicBufferMgr(numbuffers);
-      bufferMgr = new FIFOBufferMgr(numbuffers);
+      bufferMgr = new BasicBufferMgr(numbuffers);
+      //bufferMgr = new FIFOBufferMgr(numbuffers);
    }
    
-   public FIFOBufferMgr getBufferMgr(){
+   public BasicBufferMgr getBufferMgr(){
 	   return this.bufferMgr;
    }
    
